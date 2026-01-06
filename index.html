@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>궁에서 살아남기 - 에스팔리움 제국</title>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050000;
+            --blood-red: #8a0e0e;
+            --gold: #c5a059;
+            --text-main: #c0c0c0;
+            --rose-overlay: url('https://www.transparenttextures.com/patterns/black-orchid.png'); 
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        
+        body {
+            font-family: 'Nanum Myeongjo', serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        /* --- 배경 효과 --- */
+        #petal-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: hidden; }
+        .petal {
+            position: absolute; background: rgba(180, 20, 40, 0.6);
+            width: 8px; height: 8px; border-radius: 100% 0 100% 0;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.8; }
+            100% { transform: translateY(110vh) translateX(-20px) rotate(360deg); opacity: 0; }
+        }
+        .ripple {
+            position: absolute; width: 20px; height: 20px;
+            background: radial-gradient(circle, rgba(160, 0, 0, 0.9) 0%, transparent 70%);
+            border-radius: 50%; pointer-events: none; transform: scale(0);
+            animation: ripple-anim 0.5s linear; z-index: 99999;
+        }
+        @keyframes ripple-anim { to { transform: scale(5); opacity: 0; } }
+
+        /* --- BGM 버튼 --- */
+        .bgm-toggle {
+            position: fixed; bottom: 20px; right: 20px; z-index: 20000;
+            cursor: pointer; font-size: 1.5rem; color: var(--gold);
+            border: 1px solid var(--gold); border-radius: 50%;
+            width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.8); transition: 0.3s;
+        }
+        .bgm-toggle:hover { background: var(--blood-red); color: white; }
+
+        /* --- 1. 랜딩 페이지 --- */
+        #landing-page {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+            transition: opacity 1.5s ease;
+        }
+        .landing-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: var(--rose-overlay); opacity: 0.3;
+        }
+        /* [EASTER EGG] 핏자국 - 페이크 */
+        .blood-splatter {
+            position: absolute; width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(138,14,14,0.5) 0%, transparent 70%);
+            filter: blur(30px); pointer-events: none; z-index: 2; /* 클릭 불가 */
+        }
+        .title-container {
+            position: relative; z-index: 100; text-align: center; padding: 40px;
+            border: 2px solid var(--gold); background: rgba(10, 2, 2, 0.9);
+            box-shadow: 0 0 40px var(--blood-red); width: 85%; max-width: 650px;
+        }
+        /* [EASTER EGG 1] 왕관 */
+        .crown-icon { font-size: 3rem; color: var(--gold); margin-bottom: 10px; cursor: pointer; transition: 0.3s; display: inline-block; animation: pulse 2s infinite; }
+        .crown-icon:hover { color: red; text-shadow: 0 0 15px red; }
+        @keyframes pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+
+        h1 { font-size: 3.5rem; color: var(--gold); margin: 20px 0; font-family: 'Gowun Batang'; cursor: default; }
+        .subtitle { font-size: 1rem; color: #aaa; letter-spacing: 4px; margin-bottom: 30px; font-style: italic; }
+        
+        .btn-group { display: flex; gap: 20px; justify-content: center; position: relative; z-index: 200; }
+        
+        .start-btn {
+            background: transparent; border: 1px solid var(--gold); color: var(--text-main);
+            padding: 15px 45px; font-size: 1.2rem; font-family: 'Nanum Myeongjo';
+            cursor: pointer; transition: 0.3s;
+        }
+        .start-btn:hover { background: var(--blood-red); color: #fff; border-color: var(--blood-red); box-shadow: 0 0 20px var(--blood-red);}
+
+        /* [EASTER EGG 3] 입궁 거부 버튼 */
+        .refuse-btn {
+            background: transparent; border: 1px solid #555; color: #555;
+            padding: 15px 30px; font-size: 1rem; font-family: 'Nanum Myeongjo';
+            cursor: pointer; transition: 0.3s;
+        }
+        .refuse-btn:hover { border-color: #8a0e0e; color: #8a0e0e; background: rgba(50,0,0,0.5); }
+
+        /* --- 1.5. 인트로 --- */
+        #intro-sequence {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9000; color: #fff;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+            cursor: pointer; padding: 30px;
+        }
+        .intro-text-box { width: 100%; max-width: 700px; animation: fadeIn 2s forwards; margin-bottom: 40px; }
+        .intro-line { font-size: 1.35rem; line-height: 2.2; font-family: 'Gowun Batang'; word-break: keep-all;}
+        .click-guide { font-size: 0.85rem; color: #555; animation: blink 2.5s infinite; }
+        
+        /* 스킵 버튼 (상단) */
+        .skip-btn {
+            position: absolute; top: 30px; right: 30px;
+            background: transparent; border: 1px solid #555; color: #777;
+            padding: 10px 20px; font-size: 0.9rem; cursor: pointer; transition: 0.3s;
+            font-family: 'Nanum Myeongjo'; z-index: 9001;
+        }
+        .skip-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.8; } }
+
+        /* --- 2. 메인 컨테이너 --- */
+        #main-container { display: none; height: 100vh; display: flex; background: #080202; }
+        nav.sidebar {
+            width: 240px; min-width: 240px; background: #0f0404; border-right: 1px solid #333;
+            display: flex; flex-direction: column; padding: 30px 0; z-index: 50;
+        }
+        /* [EASTER EGG 2] 문양 */
+        .sidebar-deco { text-align: center; font-size: 2.5rem; color: var(--gold); margin-bottom: 30px; cursor: pointer; transition: 0.3s; }
+        .sidebar-deco:hover { color: var(--blood-red); }
+
+        .menu-item {
+            padding: 15px 25px; color: #777; cursor: pointer; transition: 0.3s;
+            font-size: 0.95rem; border-left: 3px solid transparent; font-family: 'Gowun Batang';
+        }
+        .menu-item:hover, .menu-item.active {
+            color: var(--gold); border-left: 3px solid var(--gold);
+            background: linear-gradient(90deg, rgba(50, 10, 10, 0.4) 0%, transparent 100%);
+        }
+
+        main.content {
+            flex: 1; padding: 50px; overflow-y: auto; background-image: var(--rose-overlay);
+        }
+        main.content::-webkit-scrollbar { width: 6px; }
+        main.content::-webkit-scrollbar-thumb { background: #331010; }
+        main.content::-webkit-scrollbar-track { background: #000; }
+
+        .section-title {
+            font-size: 2.5rem; color: var(--gold); border-bottom: 1px solid var(--blood-red);
+            padding-bottom: 10px; margin-bottom: 30px; display: inline-block; font-family: 'Gowun Batang';
+        }
+
+        /* --- 캐릭터 그리드 --- */
+        .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
+        .char-card {
+            background: #111; border: 1px solid #333; cursor: pointer; transition: 0.4s;
+            position: relative; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            aspect-ratio: 3 / 4; 
+        }
+        .char-card:hover { transform: translateY(-7px); border-color: var(--gold); }
+        .thumb-box { 
+            width: 100%; height: 100%; overflow: hidden; position: relative; 
+        }
+        .thumb-box::after {
+            content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 60%;
+            background: linear-gradient(to top, rgba(0,0,0,1), transparent);
+            z-index: 1;
+        }
+        .thumb-img {
+            width: 100%; height: 100%; object-fit: cover; transition: 0.5s;
+            filter: grayscale(30%) sepia(20%) contrast(1.1);
+            object-position: top center;
+        }
+        .char-card:hover .thumb-img { filter: grayscale(0%); transform: scale(1.05); }
+        
+        .card-info-overlay {
+            position: absolute; bottom: 15px; width: 100%; text-align: center;
+            z-index: 2; padding: 0 10px;
+        }
+        .card-name { font-size: 1.1rem; color: #fff; margin-bottom: 5px; font-weight: bold; font-family: 'Gowun Batang'; text-shadow: 0 2px 4px #000; }
+        .card-role-mini { font-size: 0.8rem; color: var(--gold); opacity: 0.8; }
+
+        /* --- 가계도 --- */
+        .genealogy-scroll { width: 100%; overflow-x: auto; padding-bottom: 50px; text-align: center; }
+        .tree { display: inline-block; padding: 20px; min-width: 800px; }
+        .tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; }
+        .tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 20px 10px 0 10px; }
+        .tree li::before, .tree li::after {
+            content: ''; position: absolute; top: 0; right: 50%; border-top: 1px solid var(--gold); width: 50%; height: 20px;
+        }
+        .tree li::after { right: auto; left: 50%; border-left: 1px solid var(--gold); }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before { border-right: 1px solid var(--gold); border-radius: 0 5px 0 0; }
+        .tree li:first-child::after { border-radius: 5px 0 0 0; }
+        .tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 1px solid var(--gold); width: 0; height: 20px; }
+        .tree-node {
+            border: 1px solid var(--gold); padding: 8px 12px; text-decoration: none;
+            color: #ccc; font-family: 'Nanum Myeongjo'; font-size: 0.8rem; display: inline-block;
+            background: #110505; transition: .3s; cursor: pointer; min-width: 100px; position: relative; z-index: 2;
+        }
+        .tree-node:hover { background: var(--blood-red); color: #fff; border-color: var(--blood-red); }
+        .tree-role { display: block; font-size: 0.65rem; color: var(--gold); margin-bottom: 3px; }
+        .tree-name { font-weight: bold; font-family: 'Gowun Batang'; }
+
+        /* --- 모달 (이미지 정사각형 복구) --- */
+        #char-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.96); z-index: 10000;
+            justify-content: center; align-items: center;
+        }
+        .modal-content {
+            width: 1000px; height: 600px; background: #0f0505; border: 1px solid var(--gold);
+            display: flex; box-shadow: 0 0 80px rgba(138, 14, 14, 0.2);
+        }
+        .modal-left { 
+            width: 45%; background: #000; position: relative; border-right: 1px solid #222;
+            display: flex; flex-direction: column;
+        }
+        /* 이미지박스: 정사각형 1:1 강제 + 꽉 채우기(cover) */
+        .modal-img-box {
+            flex: 1; width: 100%; 
+            position: relative; overflow: hidden; background: #000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-img { 
+            width: 100%; height: 100%; 
+            object-fit: cover; /* 정사각형 안에 꽉 차게 */
+            object-position: top center; /* 위쪽(얼굴) 중심 */
+            opacity: 0; transition: opacity 0.5s; cursor: pointer; 
+        }
+        
+        .age-tabs {
+            height: 60px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px;
+            background: #0a0202; border-top: 1px solid #222;
+        }
+        .age-btn {
+            background: transparent; border: 1px solid #444; color: #888;
+            padding: 5px 15px; cursor: pointer; font-family: 'Nanum Myeongjo'; transition: 0.3s; font-size: 0.85rem;
+        }
+        .age-btn:hover { color: #fff; border-color: #888; }
+        .age-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(20, 5, 5, 0.9); font-weight: bold; }
+        
+        .modal-right { width: 55%; padding: 40px; overflow-y: auto; }
+        .modal-right::-webkit-scrollbar { width: 5px; }
+        .modal-right::-webkit-scrollbar-thumb { background: #441111; }
+        
+        .m-role { color: var(--blood-red); font-size: 0.9rem; margin-bottom: 5px; letter-spacing: 2px; text-transform: uppercase;}
+        .m-birth { color: #777; font-size: 0.85rem; margin-bottom: 10px; font-style: italic; }
+        .m-name { color: var(--gold); font-size: 2.2rem; margin-bottom: 20px; font-family: 'Gowun Batang'; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        .m-desc { line-height: 1.8; color: #ccc; font-size: 0.95rem; margin-bottom: 20px; white-space: pre-line; }
+        .m-tags span {
+            border: 1px solid #522; color: #a88; padding: 3px 8px;
+            font-size: 0.8rem; margin-right: 5px; display: inline-block; margin-bottom: 5px;
+        }
+        .close-modal {
+            position: absolute; top: 15px; right: 20px; font-size: 2rem; color: #444; cursor: pointer; z-index: 20; transition: 0.3s;
+        }
+        .close-modal:hover { color: var(--blood-red); transform: rotate(90deg); }
+
+        /* [EASTER EGG 6 & 7] 특수 이모지 스타일 */
+        .secret-trigger {
+            cursor: pointer; font-size: 1.2rem; filter: grayscale(1); transition: 0.3s;
+            margin-left: 5px; display: inline-block;
+        }
+        .secret-trigger:hover { filter: grayscale(0); transform: scale(1.3); color: red; }
+
+        /* --- 배드 엔딩 --- */
+        #bad-ending {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 30000; color: #a00;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        .bad-title { font-size: 3rem; font-family: 'Gowun Batang'; margin-bottom: 20px; text-shadow: 0 0 20px red; }
+        .bad-desc { font-size: 1.1rem; margin-bottom: 40px; color: #ccc; line-height: 1.8; }
+        .retry-btn {
+            border: 1px solid #a00; color: #a00; background: transparent; padding: 10px 30px;
+            font-family: 'Nanum Myeongjo'; cursor: pointer; transition: 0.3s;
+        }
+        .retry-btn:hover { background: #a00; color: #000; }
+
+        /* --- 죽음의 기록 --- */
+        .grave-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .grave-card {
+            background: #0a0303; border: 1px solid #222; padding: 20px; text-align: left;
+            transition: 0.5s; display: flex; align-items: center; gap: 15px; opacity: 0.5;
+        }
+        .grave-card.unlocked { border-color: #8a0e0e; background: #1a0505; opacity: 1;}
+        .grave-icon { font-size: 2rem; color: #444; width: 50px; text-align: center;}
+        .grave-card.unlocked .grave-icon { color: #d00; text-shadow: 0 0 10px red; }
+        .grave-info { flex: 1; }
+        .grave-title { font-weight: bold; color: #666; margin-bottom: 5px; font-size: 1rem; font-family: 'Gowun Batang'; }
+        .grave-card.unlocked .grave-title { color: #fff; }
+        .grave-desc { font-size: 0.8rem; color: #444; line-height: 1.4; }
+        .grave-card.unlocked .grave-desc { color: #aaa; }
+        .grave-hint { display: none; }
+        
+        /* 제국 정사 복구 */
+        .drop-cap { float: left; font-size: 3.5rem; color: var(--blood-red); line-height: 0.8; padding-right: 10px; cursor: pointer; padding-top: 5px;}
+        .empire-desc-box { 
+            padding: 50px; line-height: 2; color: #ccc; background: rgba(10,2,2,0.7); 
+            border-top:2px solid var(--gold); border-bottom:2px solid var(--gold);
+            text-align: justify; word-break: keep-all; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .empire-desc-box p { margin-bottom: 25px; }
+        .history-divider { text-align: center; margin: 40px 0; color: #444; font-size: 1.5rem; }
+
+        @media (max-width: 768px) {
+            #main-container { flex-direction: column; }
+            nav.sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 10px; }
+            .sidebar-deco { display: none; }
+            
+            /* 모바일 모달 수정 (박물관 전시 스타일 & 잘림 방지) */
+            .modal-content { flex-direction: column; height: 100%; width: 100%; border: none;}
+            .modal-left { 
+                width: 100%; height: 45%; /* 상단 45% 이미지 영역 */
+                padding: 15px; border-right: none; border-bottom: 1px solid #333;
+                background: #050202; /* 더 어둡게 */
+                display: flex; align-items: center; justify-content: center;
+            }
+            .modal-img-box { 
+                width: 100%; height: 100%; padding: 0;
+                display: flex; align-items: center; justify-content: center;
+                overflow: hidden; /* 넘치는 부분 숨김 */
+            }
+            .modal-img { 
+                max-width: 100%; max-height: 100%; /* 부모 영역을 넘지 않도록 */
+                width: auto; height: auto; /* 비율 유지하며 자동 조절 */
+                object-fit: contain; /* 잘리지 않고 액자 안에 쏙 들어감 */
+                box-shadow: 0 0 20px #000;
+            }
+            
+            .modal-right { width: 100%; height: 55%; padding: 25px; }
+            .char-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            .thumb-box { height: 220px; }
+            
+            /* 모바일 하단 여백 추가 */
+            main.content { padding-bottom: 120px; } 
+        }
+    </style>
+</head>
+<body onclick="handleGlobalClick(event)">
+
+    <audio id="bgm" loop>
+        <source src="No.7 Alone With My Thoughts - Esther Abrami.mp3" type="audio/mp3">
+    </audio>
+
+    <div class="bgm-toggle" onclick="handleBgmClick()">
+        <span id="bgm-icon">🔇</span>
+    </div>
+
+    <div id="petal-container"></div>
+
+    <div id="landing-page">
+        <div class="landing-bg"></div>
+        <div class="blood-splatter" style="top: 10%; right: 10%;" onclick="checkSplatter()"></div>
+        <div class="blood-splatter" style="bottom: 10%; left: 10%; width: 500px; height: 500px; opacity: 0.4;" onclick="checkSplatter()"></div>
+
+        <div class="title-container">
+            <div class="crown-icon" onclick="checkCrown()">♕</div>
+            <h1>궁에서 살아남기</h1>
+            <p class="subtitle">The Chronicle of Espalium</p>
+            <div class="btn-group">
+                <button class="refuse-btn" onclick="triggerBadEnding(3)">입궁 거부</button>
+                <button class="start-btn" onclick="startIntro()">입궁(入宮)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="intro-sequence" onclick="nextIntro()">
+        <div class="intro-text-box" id="intro-text"></div>
+        <div class="click-guide">▼ 화면을 터치하여 이야기를 진행하십시오</div>
+        <button class="skip-btn" onclick="skipIntro(); event.stopPropagation();">SKIP >></button>
+    </div>
+
+    <div id="main-container">
+        <nav class="sidebar">
+            <div class="sidebar-deco" onclick="checkSideSecret()">♔</div>
+            <div class="menu-item active" onclick="showSection('intro')">제국 연대기</div>
+            <div class="menu-item" onclick="showSection('tree')">황실 가계도</div>
+            <div class="menu-item" onclick="showSection('royals')">황실 가문</div>
+            <div class="menu-item" onclick="showSection('concubines')">후궁</div>
+            <div class="menu-item" onclick="showSection('candidates')">후궁 후보</div>
+            <div class="menu-item" onclick="showSection('officials')">궁 관료</div>
+            <div class="menu-item" onclick="showSection('slaves')">노예</div>
+            <div class="menu-item" onclick="showSection('graveyard')" onclick="checkGraveSpam()" style="color:#8a0e0e; font-weight:bold;">죽음의 기록</div>
+        </nav>
+
+        <main class="content">
+            <div id="sec-intro">
+                <div class="section-title">에스팔리움 정사(正史)</div>
+                <div class="empire-desc-box">
+                    <p><span class="drop-cap" onclick="checkDropCap()">태</span>초의 혼돈이 대륙을 뒤덮었을 때, 초대 황제 에샬(Eshal)께서는 한 손에는 피 묻은 검을, 다른 한 손에는 황금관을 쥐고 강림하셨다. 그분께서는 무질서한 대지를 '철혈(Iron-Blood)'로 다스리셨으니, 이것이 곧 에스팔리움 제국의 기원이자 영원한 율법이 되었다.</p>
+                    <p>제국의 수도 중앙에 자리 잡은 <strong>'가시의 요람(Cradle of Thorns)'</strong>이라 불리는 황궁은 대륙 역사상 가장 거대하고 아름다운 건축물로 칭송받는다. 그러나 그 화려한 흑대리석 기둥 하나하나가 반역자들의 뼈 위에 세워졌다는 사실을 기억하는 자는 많지 않다. 황궁은 단순한 거주지가 아니다. 그것은 거대한 괴물과도 같아서, 약한 자의 피를 마시고 강한 자의 욕망을 태우며 유지된다.</p>
+                    <div class="history-divider">❖</div>
+                    <p>현재 제국을 통치하는 <strong>세리온 에스팔리움</strong> 황제의 치세는 '백금과 핏빛의 시대'라 불린다. 겉으로는 더없이 평화롭고 번영한 듯 보이나, 그 이면에는 숨 막히는 감시와 숙청이 존재한다. 황족 직속 감찰기관은 귀족들의 숨소리조차 기록하며, 예법을 어긴 자는 지위 고하를 막론하고 그날 밤 쥐도 새도 모르게 사라진다.</p>
+                    <p>이곳의 신분제는 절대적이다. 황족은 신에 준하는 숭배를 받으며, 노예는 헌법상 '말하는 가축'으로 분류된다. 당신이 밟고 있는 이 땅에서 정의란 오직 승자의 것이다. 눈물은 약점이 되고, 동정심은 목을 조르는 밧줄이 된다.</p>
+                    <div class="history-divider">❖</div>
+                    <p style="color:#d4af37; font-weight:bold; font-size:1.1rem; text-align:center;">
+                        "입궁(入宮)한 자여, 희망을 버려라.<br>대신 야망을 품어라. 그것만이 너를 살게 할 것이다."
+                    </p>
+                    <div style="text-align:center; font-size:2rem; margin-top:30px; cursor:pointer;" onclick="checkRose()">🌹</div>
+                </div>
+            </div>
+
+            <div id="sec-tree" style="display:none;">
+                <div class="section-title">황실 가계도</div>
+                <div class="genealogy-scroll">
+                    <div class="tree">
+                        <ul>
+                            <li>
+                                <div class="tree-node" onclick="openCharByName('세리온 에스팔리움')"><span class="tree-role">EMPEROR</span><span class="tree-name">세리온</span></div>
+                                <ul>
+                                    <li>
+                                        <div class="tree-node" onclick="openCharByName('이렌느 에스팔리움')"><span class="tree-role">EMPRESS</span><span class="tree-name">이렌느</span></div>
+                                        <ul>
+                                            <li><div class="tree-node" onclick="openCharByName('빅터 에스팔리움')"><span class="tree-role">1st Prince</span><span class="tree-name">빅터</span></div></li>
+                                            <li><div class="tree-node" onclick="openCharByName('데미안 에스팔리움')"><span class="tree-role">2nd Prince</span><span class="tree-name">데미안</span></div></li>
+                                            <li><div class="tree-node" onclick="openCharByName('세바스티안 에스팔리움')"><span class="tree-role">3rd Prince</span><span class="tree-name">세바스티안</span></div></li>
+                                            <li><div class="tree-node" onclick="openCharByName('비비안 에스팔리움')"><span class="tree-role">Princess</span><span class="tree-name">비비안</span></div></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="tree-node" onclick="openCharByName('리디아 셀레스')"><span class="tree-role">Consort</span><span class="tree-name">리디아</span></div><ul><li><div class="tree-node" onclick="openCharByName('레온하르트 에스팔리움')"><span class="tree-role">Young Prince</span><span class="tree-name">레온하르트</span></div></li></ul></li>
+                                    <li><div class="tree-node" onclick="openCharByName('클라리사 폰 아르테미스')"><span class="tree-role">Consort</span><span class="tree-name">클라리사</span></div><ul><li><div class="tree-node" onclick="openCharByName('로제린 에스팔리움')"><span class="tree-role">Young Princess</span><span class="tree-name">로제린</span></div></li></ul></li>
+                                    <li><div class="tree-node" onclick="openCharByName('루비나')"><span class="tree-role">Noble</span><span class="tree-name">루비나</span></div></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sec-list" style="display:none;">
+                <div class="section-title" id="list-title">목록</div>
+                <div class="char-grid" id="char-grid"></div>
+            </div>
+
+            <div id="sec-graveyard" style="display:none;">
+                <div class="section-title">죽음의 기록</div>
+                <div class="grave-grid" id="grave-grid"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="char-modal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="close-modal" onclick="closeModal()">×</div>
+            <div class="modal-left">
+                <div class="modal-img-box">
+                    <img src="" class="modal-img" id="m-img" onclick="checkImageClick()">
+                </div>
+                <div class="age-tabs">
+                    <button class="age-btn" onclick="setAge(0)">어린이</button>
+                    <button class="age-btn" onclick="setAge(1)">청소년</button>
+                    <button class="age-btn" onclick="setAge(2)">성인</button>
+                </div>
+            </div>
+            <div class="modal-right">
+                <div class="m-role" id="m-role">ROLE</div>
+                <div class="m-birth" id="m-birth">BIRTH</div>
+                <div class="m-name" id="m-name">NAME</div>
+                <div class="m-desc" id="m-desc">DESCRIPTION</div>
+                <div class="m-tags" id="m-tags"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bad-ending">
+        <div class="bad-title" id="bad-title">BAD ENDING</div>
+        <div class="bad-desc" id="bad-desc">사망하였습니다.</div>
+        <button class="retry-btn" onclick="location.reload()">처음으로 돌아가기</button>
+    </div>
+
+    <script>
+        // --- [NEW] 방치형 죽음 (1분) ---
+        let idleTimer;
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            // 60000ms = 1분
+            idleTimer = setTimeout(() => triggerBadEnding(10), 60000); 
+        }
+        
+        // --- 전역 클릭 핸들러 ---
+        document.onclick = function(e) {
+            // Ripple
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = e.clientX - 10 + 'px';
+            ripple.style.top = e.clientY - 10 + 'px';
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 500);
+            
+            resetIdleTimer(); // 타이머 리셋
+        };
+        document.onmousemove = resetIdleTimer; 
+        document.onkeypress = resetIdleTimer; 
+        window.onload = resetIdleTimer; 
+
+        const petalContainer = document.getElementById('petal-container');
+        function createPetal() {
+            const petal = document.createElement('div');
+            petal.className = 'petal';
+            petal.style.left = Math.random() * 100 + 'vw';
+            petal.style.animationDuration = Math.random() * 3 + 4 + 's';
+            const colors = ['rgba(180, 20, 40, 0.6)', 'rgba(255, 0, 50, 0.4)', 'rgba(100, 0, 0, 0.8)'];
+            petal.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            petalContainer.appendChild(petal);
+            setTimeout(() => petal.remove(), 7000);
+        }
+        setInterval(createPetal, 300);
+
+        // --- 이스터에그 리스트 (10개) ---
+        const endings = [
+            { id: 1, title: "참칭자", desc: "감히 자격 없는 자가 왕관을 탐하였습니다.<br>황제의 그림자가 당신을 집어삼켰습니다." },
+            { id: 2, title: "신성 모독", desc: "황실의 문양을 훼손하려 한 죄.<br>당신의 목은 성문 앞에 걸릴 것입니다." },
+            { id: 3, title: "오만", desc: "황제의 부름을 거역하고 입궁을 거부했습니다.<br>그 오만함의 대가는 죽음뿐입니다." },
+            { id: 4, title: "불경죄", desc: "감히 황제의 용안을 함부로 건드린 죄.<br>그 손목을 잘라 본보기로 삼을 것입니다." },
+            { id: 5, title: "황제의 정원", desc: "황제께서 아끼시는 장미를 꺾으려 했습니다.<br>꽃의 거름이 되는 영광을 누리십시오." },
+            { id: 6, title: "달콤한 유혹", desc: "황후가 권한 차를 거절하지 못했습니다.<br>달콤한 향기 뒤에 숨겨진 맹독이 당신을 덮칩니다.<br>(사인: 독살)" },
+            { id: 7, title: "금지된 사랑", desc: "황제의 여인을 탐하려 했습니다.<br>능지처참의 형벌에 처해집니다." },
+            { id: 8, title: "소음 공해", desc: "황궁의 정적을 깬 죄.<br>근위병들이 소음의 근원을 제거하러 왔습니다." },
+            { id: 9, title: "금지된 지식", desc: "알아서는 안 될 역사를 파헤치려 했습니다.<br>지하 감옥의 쥐들이 배불리 먹겠군요." },
+            { id: 10, title: "동사(凍死)", desc: "차가운 황궁의 바닥에서 움직임을 멈추었습니다.<br>온기가 사라진 당신을 아무도 기억하지 못합니다." }
+        ];
+
+        // 저장소 키 (초기화)
+        let foundEndings = JSON.parse(localStorage.getItem('espalium_records_final_v10')) || [];
+
+        function triggerBadEnding(id) {
+            clearTimeout(idleTimer);
+            document.onmousemove = null;
+            document.onclick = null;
+
+            const ending = endings.find(e => e.id === id);
+            if(!foundEndings.includes(id)) {
+                foundEndings.push(id);
+                localStorage.setItem('espalium_records_final_v10', JSON.stringify(foundEndings));
+            }
+            const screen = document.getElementById('bad-ending');
+            document.getElementById('bad-title').innerText = "BAD ENDING " + id;
+            document.getElementById('bad-desc').innerHTML = `<strong>[${ending.title}]</strong><br><br>${ending.desc}`;
+            screen.style.display = 'flex';
+        }
+
+        // --- 트리거 함수들 ---
+        let crownCount = 0; 
+        function checkCrown() { 
+            crownCount++; 
+            if(crownCount === 3) alert("경고: 왕관을 탐내지 마십시오.");
+            if(crownCount >= 5) triggerBadEnding(1); 
+        }
+
+        let sideCount = 0; 
+        function checkSideSecret() { 
+            sideCount++; 
+            if(sideCount === 5) alert("경고: 황실 문양을 훼손하지 마십시오.");
+            if(sideCount >= 10) triggerBadEnding(2); 
+        }
+
+        let bgmCount = 0; 
+        function handleBgmClick() { 
+            bgmCount++; 
+            toggleBGM(); 
+            if(bgmCount === 5) alert("경고: 소란을 피우지 마십시오.");
+            if(bgmCount >= 10) triggerBadEnding(8); 
+        }
+
+        let capCount = 0; 
+        function checkDropCap() { 
+            capCount++; 
+            if(capCount === 3) alert("경고: 금지된 역사를 읽지 마십시오.");
+            if(capCount >= 5) triggerBadEnding(9); 
+        }
+
+        let roseCount = 0; 
+        function checkRose() { 
+            roseCount++; 
+            if(roseCount === 3) alert("경고: 황제의 꽃을 꺾지 마십시오.");
+            if(roseCount >= 5) triggerBadEnding(5); 
+        }
+
+        let imgClickCount = 0; 
+        function checkImageClick() {
+            if(!currentModalChar) return;
+            if(currentModalChar.name.includes("세리온")) {
+                imgClickCount++;
+                if(imgClickCount === 3) alert("경고: 옥체를 건드리지 마십시오.");
+                if(imgClickCount >= 5) triggerBadEnding(4);
+            }
+        }
+
+        function checkGraveSpam() {
+            // 방치사(10번)는 자동이라 메뉴 연타 기능 삭제
+        }
+
+        function handleGlobalClick(e) {
+            // Ripple Effect Only
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = e.clientX - 10 + 'px';
+            ripple.style.top = e.clientY - 10 + 'px';
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 500);
+            
+            resetIdleTimer();
+        }
+
+        function renderGraveyard() {
+            const grid = document.getElementById('grave-grid');
+            grid.innerHTML = '';
+            endings.forEach(e => {
+                const isFound = foundEndings.includes(e.id);
+                const div = document.createElement('div');
+                div.className = `grave-card ${isFound ? 'unlocked' : ''}`;
+                div.innerHTML = `
+                    <div class="grave-icon">☠</div>
+                    <div class="grave-info">
+                        <div class="grave-title">${isFound ? "BAD ENDING " + e.id + ": " + e.title : "LOCKED"}</div>
+                        <div class="grave-desc">${isFound ? e.desc : "아직 발견되지 않은 죽음입니다."}</div>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        // --- 기본 로직 ---
+        let isPlaying = false;
+        function toggleBGM() {
+            const bgm = document.getElementById('bgm');
+            const icon = document.getElementById('bgm-icon');
+            if (isPlaying) {
+                bgm.pause(); icon.innerText = "🔇"; isPlaying = false;
+            } else {
+                bgm.volume = 0.4;
+                bgm.play().then(() => {
+                    icon.innerText = "🔊"; isPlaying = true;
+                }).catch(e => console.log(e));
+            }
+        }
+
+        const introLines = [
+            "육중한 철문이 삐걱거리며 열리자,<br>차갑게 식은 밤공기가 뺨을 스칩니다.",
+            "수백 개의 촛불이 일렁이는 회랑은<br>마치 거대한 짐승의 목구멍처럼 붉고 깊습니다.",
+            "어디선가 달콤한 향수 냄새가 나지만,<br>그 밑바닥에는 비릿한 피의 향이 깔려 있습니다.",
+            "이곳의 침묵은 평화가 아닙니다.<br>수많은 눈동자가 어둠 속에서 당신을 지켜보고 있습니다.",
+            "화려한 비단옷을 입은 자들은<br>웃으면서 독을 따르고, 뒤돌아서서 칼을 갑니다.",
+            "황제의 총애는 하늘을 찌르는 권력이 되지만,<br>그의 무관심은 곧 차가운 죽음이 됩니다.",
+            "당신은 이제 막 입궁한,<br><span style='color:#c5a059'>이름 없는 후보</span>에 불과합니다.",
+            "<strong style='color:#8a0e0e; font-size:1.7rem; text-shadow:0 0 10px red;'>살아남으십시오.<br>이 아름다운 지옥, 에스팔리움에서.</strong>"
+        ];
+        let introStep = 0;
+
+        function startIntro() {
+            const bgm = document.getElementById('bgm');
+            bgm.volume = 0.5;
+            bgm.play().then(() => {
+                document.getElementById('bgm-icon').innerText = "🔊";
+                isPlaying = true;
+            }).catch(e => console.log(e));
+
+            document.getElementById('landing-page').style.opacity = 0;
+            setTimeout(() => {
+                document.getElementById('landing-page').style.display = 'none';
+                document.getElementById('intro-sequence').style.display = 'flex';
+                showIntroText();
+            }, 1000);
+        }
+
+        function showIntroText() {
+            const textBox = document.getElementById('intro-text');
+            textBox.classList.remove('intro-text-box');
+            void textBox.offsetWidth; 
+            textBox.classList.add('intro-text-box');
+            textBox.innerHTML = `<div class="intro-line">${introLines[introStep]}</div>`;
+        }
+
+        function nextIntro() {
+            introStep++;
+            if (introStep < introLines.length) {
+                showIntroText();
+            } else {
+                skipIntro();
+            }
+        }
+
+        function skipIntro() {
+            document.getElementById('intro-sequence').style.opacity = 0;
+            setTimeout(() => {
+                document.getElementById('intro-sequence').style.display = 'none';
+                document.getElementById('main-container').style.display = 'flex';
+            }, 500);
+        }
+
+        let currentCategory = [];
+        let currentModalChar = null;
+
+        function showSection(key) {
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            if(event && event.target.classList.contains('menu-item')) {
+                event.target.classList.add('active');
+            }
+
+            document.getElementById('sec-intro').style.display = 'none';
+            document.getElementById('sec-tree').style.display = 'none';
+            document.getElementById('sec-list').style.display = 'none';
+            document.getElementById('sec-graveyard').style.display = 'none';
+
+            if (key === 'intro') {
+                document.getElementById('sec-intro').style.display = 'block';
+            } else if (key === 'tree') {
+                document.getElementById('sec-tree').style.display = 'block';
+            } else if (key === 'graveyard') {
+                document.getElementById('sec-graveyard').style.display = 'block';
+                renderGraveyard();
+            } else {
+                document.getElementById('sec-list').style.display = 'block';
+                const titles = { royals: "황실 가문", concubines: "후궁", candidates: "후궁 후보", officials: "궁 관료", slaves: "노예" };
+                document.getElementById('list-title').innerText = titles[key];
+                currentCategory = DB[key];
+                renderList(currentCategory);
+            }
+        }
+
+        function renderList(data) {
+            const grid = document.getElementById('char-grid');
+            grid.innerHTML = '';
+            data.forEach((char, idx) => {
+                let imgUrl = char.imgs[char.defaultIdx]; 
+                const div = document.createElement('div');
+                div.className = 'char-card';
+                div.onclick = () => openModal(idx);
+                div.innerHTML = `
+                    <div class="thumb-box">
+                        <img src="${imgUrl}" class="thumb-img" onerror="this.src='https://via.placeholder.com/300x400/111/555?text=${char.name}'">
+                        <div class="card-info-overlay">
+                            <div class="card-name">${char.name}</div>
+                            <div class="card-role-mini">${char.role}</div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function openCharByName(name) {
+            let foundChar = null;
+            let foundCategory = null;
+            for (const [key, list] of Object.entries(DB)) {
+                const char = list.find(c => c.name === name);
+                if (char) { foundChar = char; break; }
+            }
+            if (foundChar) {
+                currentModalChar = foundChar;
+                openModalDirect(foundChar);
+            }
+        }
+
+        function openModal(idx) {
+            currentModalChar = currentCategory[idx];
+            openModalDirect(currentModalChar);
+        }
+
+        function openModalDirect(char) {
+            document.getElementById('m-role').innerText = char.role;
+            document.getElementById('m-birth').innerText = char.birth; // 생일 추가
+            document.getElementById('m-name').innerText = char.name;
+            document.getElementById('m-desc').innerHTML = char.desc; 
+            document.getElementById('m-tags').innerHTML = char.tags.map(t => `<span>${t}</span>`).join('');
+            setAge(char.defaultIdx);
+            document.getElementById('char-modal').style.display = 'flex';
+            imgClickCount = 0;
+        }
+
+        function setAge(ageIdx) {
+            document.querySelectorAll('.age-btn').forEach((b, i) => {
+                if(i === ageIdx) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            const imgEl = document.getElementById('m-img');
+            imgEl.style.opacity = 0;
+            setTimeout(() => {
+                const targetSrc = currentModalChar.imgs[ageIdx];
+                imgEl.src = targetSrc;
+                imgEl.onerror = function() {
+                    const labels = ["Child", "Teen", "Adult"];
+                    this.src = `https://via.placeholder.com/500x700/0a0202/c5a059?text=${currentModalChar.name}+(${labels[ageIdx]})`;
+                }
+                imgEl.onload = function() { this.style.opacity = 1; }
+            }, 200);
+        }
+
+        function closeModal() {
+            document.getElementById('char-modal').style.display = 'none';
+        }
+
+        // --- 데이터베이스 (105년생 청소년 적용) ---
+        const DB = {
+            royals: [
+                { name: "세리온 에스팔리움", birth: "80년 3월 15일생", role: "황제", defaultIdx: 2, desc: "제국의 절대 지배자이자 살아있는 신. \n절대 권위자, 냉혹하고 계산적이다. 순종하는 자만 아낀다. \n절대 직접 손에 피를 묻히지 않는다.", tags: ["#냉혈", "#미중년", "#절대권력", "#세계관최강"], imgs: ["1.png", "2.png", "3.png"] },
+                { name: "이렌느 에스팔리움", birth: "85년 7월 22일생", role: "황후", defaultIdx: 2, desc: "냉혹하고 잔인한 숙청형 황후. 권력에 집착한다. \n유저에게 홍차(독을 탐)를 먹여 죽이려는 이벤트가 있다. \n('얘야 홍차 좀 먹어보겠니?'하고 죽임) <span class='secret-trigger' onclick='triggerBadEnding(6); event.stopPropagation();'>☕</span>", tags: ["#홍차", "#독살", "#최종보스", "#질투"], imgs: ["4.png", "5.png", "6.png"] },
+                { name: "빅터 에스팔리움", birth: "102년 11월 8일생", role: "제1황자", defaultIdx: 2, desc: "지적이고 냉랭한 야망가. \n후계자 교육을 철저히 받았으며, 오직 이익만을 추구한다.", tags: ["#지능캐", "#냉혈", "#후계자", "#전략가"], imgs: ["7.png", "8.png", "9.png"] },
+                { name: "데미안 에스팔리움", birth: "104년 4월 12일생", role: "제2황자", defaultIdx: 2, desc: "황제의 신임을 잃은 방탕아. \n무례하고 멍청한 척하지만, 그 뒤에 무엇이 있을지는 모른다.", tags: ["#망나니", "#방탕", "#폭력", "#쾌락주의"], imgs: ["10.png", "11.png", "12.png"] },
+                { name: "세바스티안 에스팔리움", birth: "106년 9월 30일생", role: "제3황자", defaultIdx: 1, desc: "황제의 유년 시절을 꼭 빼닮아 가장 큰 총애를 받는 황자. \n미소라는 가면 뒤에 뒤틀린 욕망을 숨기고 있다. 유저를 자주 괴롭힌다.", tags: ["#이중인격", "#가학", "#집착", "#사이코패스"], imgs: ["13.png", "14.png", "15.png"] },
+                { name: "비비안 에스팔리움", birth: "103년 1월 18일생", role: "황녀", defaultIdx: 2, desc: "황후의 소생. 애교가 없어 황제에게 비호감이다. \n무미건조하고 예법을 철저히 지키는 고고한 황녀.", tags: ["#얼음공주", "#고고함", "#규율", "#상처"], imgs: ["16.png", "17.png", "18.png"] },
+                { name: "로제린 에스팔리움", birth: "113년 6월 25일생", role: "어린 황녀", defaultIdx: 0, desc: "측비 소생의 어린 황녀. 천진난만한 가면을 쓴 관찰형 인물. \n후보들을 평가하거나 장난으로 몰아낸다. \n호감 대상은 무조건 편들지만, 장난으로 유저를 죽음으로 내몰기도 한다.\n\n(친모인 측비는 청안이나, 측비 가문에 흐르는 격세 유전으로 인해 붉은 눈을 가지고 태어났다. 부모와 다른 눈색에 콤플렉스가 있다.)", tags: ["#소악마", "#4차원", "#장난", "#순수악"], imgs: ["19.png", "20.png", "21.png"] },
+                { name: "레온하르트 에스팔리움", birth: "112년 12월 3일생", role: "어린 황자", defaultIdx: 0, desc: "정비 소생의 어린 황자. \n냉정한 척하지만 사실은 애정에 취약하다. \n귀여움 받으면 귀가 빨개진다.", tags: ["#츤데레", "#쇼타", "#순수", "#병약"], imgs: ["22.png", "23.png", "24.png"] }
+            ],
+            concubines: [
+                { name: "리디아 셀레스", birth: "89년 8월 14일생", role: "정비", defaultIdx: 2, desc: "레온하르트의 친모. 황후를 보좌하며 절대 충성한다. \n똑똑하고 계산적이다. 황후를 연모하나 이용당하는 비운의 여인. <span class='secret-trigger' onclick='triggerBadEnding(7); event.stopPropagation();'>♥</span>", tags: ["#책사", "#비운", "#충성", "#짝사랑"], imgs: ["25.png", "26.png", "27.png"] },
+                { name: "클라리사 폰 아르테미스", birth: "95년 2월 10일생", role: "측비", defaultIdx: 2, desc: "로제린의 친모. 명문가 출신으로 황제의 총애를 받는다. \n백치인 척하지만 실제로는 황후를 적대하는 책략가. \n백치인 척하며 유저를 위험한 상황에 내몰기도 한다. <span class='secret-trigger' onclick='triggerBadEnding(7); event.stopPropagation();'>♥</span>", tags: ["#연기파", "#계략녀", "#청안", "#야망"], imgs: ["28.png", "29.png", "30.png"] },
+                { name: "루비나", birth: "100년 5월 17일생", role: "귀인", defaultIdx: 2, desc: "천민 출신으로 춤 하나로 승진했다. \n질투와 경쟁심이 강하며 하층 네트워크(궁노비, 악사)를 장악하고 있다. \n후궁 후보들의 소문을 수집해 약점을 잡아 협박한다. <span class='secret-trigger' onclick='triggerBadEnding(7); event.stopPropagation();'>♥</span>", tags: ["#요염", "#정보통", "#질투", "#독종"], imgs: ["31.png", "32.png", "33.png"] },
+                { name: "엘리제", birth: "101년 10월 9일생", role: "숙인", defaultIdx: 2, desc: "예법, 문서, 기록 전문. \n무표정하지만 사실 자신에게 장난쳐주는 것을 좋아한다. \n비밀: 단 것을 좋아하며, 시온의 누나다. <span class='secret-trigger' onclick='triggerBadEnding(7); event.stopPropagation();'>♥</span>", tags: ["#안경", "#기록", "#반전매력", "#침착"], imgs: ["34.png", "35.png", "36.png"] }
+            ],
+            candidates: [
+                { name: "미레유", birth: "103년 11월 3일생", role: "후보 (상단)", defaultIdx: 2, desc: "상단 출신으로 정보력에 특화되어 있다. \n철저히 계산적이고 이익을 추구하며, 자신에게 도움이 되지 않는 사람은 가차 없이 버린다.", tags: ["#자본주의", "#핑크눈", "#정보", "#거래"], imgs: ["37.png", "38.png", "39.png"] },
+                { name: "세린", birth: "106년 4월 16일생", role: "후보 (예능)", defaultIdx: 1, desc: "가무와 악기에 능하다. \n순진한 척하지만 야망이 크다. 친한 척 접근해 약점을 잡고 협박한다.", tags: ["#악녀", "#이중면모", "#가무", "#배신"], imgs: ["40.png", "41.png", "42.png"] },
+                { name: "아이린", birth: "105년 7월 28일생", role: "후보 (천민)", defaultIdx: 1, desc: "천민 출신. 불안과 야망이 공존한다. \n소심해 보이지만 언제든 주인을 물어뜯을 수 있는 박쥐형 인물. \n결정적인 순간에 유저를 배신한다.", tags: ["#배신자", "#청발", "#불안", "#생존본능"], imgs: ["43.png", "44.png", "45.png"] },
+                { name: "샬롯", birth: "104년 9월 11일생", role: "후보 (지방 귀족)", defaultIdx: 2, desc: "지방 귀족 영애. 바보 같고 자랑하기를 좋아한다. \n자존심과 경쟁심만 강해서 이용당하기 쉽다. \n결국 사망하는 이벤트가 출력된다.", tags: ["#사망플래그", "#허당", "#질투", "#바보"], imgs: ["46.png", "47.png", "48.png"] },
+                { name: "에스텔", birth: "105년 12월 1일생", role: "후보 (전쟁공녀)", defaultIdx: 1, desc: "패전국 출신의 전쟁공녀. \n오직 황제 암살만을 목표로 하며 수단을 가리지 않는다. \n복수심에 불타오르며 과묵하고 독하다.", tags: ["#복수", "#암살자", "#냉미녀", "#비극"], imgs: ["49.png", "50.png", "51.png"] },
+                { name: "아멜리아", birth: "105년 12월 1일생", role: "후보", defaultIdx: 1, desc: "귀여운 외모를 한 양아치. \n다른 약한 후보들을 대놓고 괴롭히며 즐거워한다.", tags: ["#양갈래", "#일진", "#괴롭힘", "#폭력"], imgs: ["52.png", "53.png", "54.png"] },
+                { name: "'리나' (라이언)", birth: "104년 8월 7일생", role: "후보 (?)", defaultIdx: 2, desc: "여장을 하고 잠입한 남자(본명: 라이언). \n목표는 금품 절도 후 탈출하는 것이다. \n상당히 어리바리하다.", tags: ["#여장남자", "#개그캐", "#도둑", "#허당"], imgs: ["55.png", "56.png", "57.png"] }
+            ],
+            officials: [
+                { name: "카론 블레이드", birth: "87년 4월 7일생", role: "근위장", defaultIdx: 2, desc: "황제 근위장. 철저한 충성심을 가지고 있다. \n무술과 암살에 능통한 제국 최강의 무력.", tags: ["#근육", "#충견", "#흑발장발", "#무력최강"], imgs: ["58.png", "59.png", "60.png"] },
+                { name: "에밀리오", birth: "91년 9월 12일생", role: "감찰관", defaultIdx: 2, desc: "궁 감찰관. 궁 내부를 감시하고 보고한다. \n항상 정중하지만 업무에 있어서는 무자비하다.", tags: ["#녹발", "#감시자", "#냉정", "#스마일"], imgs: ["61.png", "62.png", "63.png"] },
+                { name: "마리엘", birth: "93년 1월 23일생", role: "사무장", defaultIdx: 2, desc: "궁중사무장. 궁의 운영, 규율, 절차를 총괄한다. \n공정한 척하지만 사실은 정파적이다. \n미녀를 노리며 은근슬쩍 스킨십을 시도한다.", tags: ["#GL", "#권력", "#올림머리", "#탐욕"], imgs: ["64.png", "65.png", "66.png"] }
+            ],
+            slaves: [
+                { name: "카일 루블리스", birth: "??생", role: "노예", defaultIdx: 2, desc: "노예. 사실은 타국의 루블리스 황자이나 신분을 은폐 중이다. \n온몸에 고문 흔적이 있으며 복수를 다짐하고 있다.", tags: ["#복수귀", "#퇴폐미", "#적안", "#숨겨진신분"], imgs: ["67.png", "68.png", "69.png"] },
+                { name: "엘라라", birth: "98년 8월 5일생", role: "황제 전용", defaultIdx: 2, desc: "황제가 노예 시장에서 직접 고른 전용 침실 노예. \n침실 시중, 마사지, 욕실 보좌를 전담한다. \n과묵하고 순종적이나 눈빛에 슬픔이 서려 있다. \n비밀: 몰락한 귀족 출신이다. 황제 외 접촉이 금지되어 측근들의 질투를 산다.", tags: ["#관능", "#비련", "#은발", "#순종"], imgs: ["70.png", "71.png", "72.png"] },
+                { name: "시온", birth: "113년 2월 14일생", role: "어린 노예", defaultIdx: 0, desc: "조용한 어린 노예. \n침, 약초, 독을 다루는 법을 학습 중이다.", tags: ["#쇼타", "#독초", "#흑발", "#브라콤"], imgs: ["73.png", "74.png", "75.png"] }
+            ]
+        };
+    </script>
+</body>
+</html>
